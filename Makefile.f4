@@ -23,6 +23,14 @@ FLAGS		+= -mthumb -mcpu=cortex-m4 -mfloat-abi=hard -mfpu=fpv4-sp-d16 \
 		   -lopencm3_stm32f4 \
         $(EXTRAFLAGS)
 
+ifeq ($(SECURE),1)
+	SRCS += uECC.c
+	FLAGS += -I$(WOLFSSL_BUILD)/include \
+			-L$(WOLFSSL_BUILD)/lib \
+			-lwolfssl \
+			-DSECURE=1
+endif
+
 #
 # General rules for making dependency and object files
 # This is where the compiler is called

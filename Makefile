@@ -8,6 +8,8 @@
 export BUILD_DIR_ROOT ?= build
 export BL_BASE		?= $(wildcard .)
 export LIBOPENCM3	?= $(wildcard libopencm3)
+export WOLFSSL	?= $(wildcard wolfssl)
+export WOLFSSL_BUILD	?= build/wolfssl
 export LIBKINETIS  	?= $(wildcard lib/kinetis/NXP_Kinetis_Bootloader_2_0_0)
 MKFLAGS=--no-print-directory
 
@@ -65,6 +67,7 @@ TARGETS	= \
 	px4fmu_bl \
 	px4fmuv2_bl \
 	px4fmuv3_bl \
+	px4fmuv3_secure_bl \
 	px4fmuv4_bl \
 	px4fmuv4pro_bl \
 	px4fmuv5_bl \
@@ -99,6 +102,9 @@ px4fmuv2_bl: $(MAKEFILE_LIST) $(LIBOPENCM3)
 
 px4fmuv3_bl: $(MAKEFILE_LIST) $(LIBOPENCM3)
 	${MAKE} ${MKFLAGS} -f  Makefile.f4 TARGET_HW=PX4_FMU_V3  LINKER_FILE=stm32f4.ld TARGET_FILE_NAME=$@
+
+px4fmuv3_secure_bl: $(MAKEFILE_LIST) $(LIBOPENCM3) $(WOLFSSL_BUILD)
+	${MAKE} ${MKFLAGS} -f  Makefile.f4 TARGET_HW=PX4_FMU_V3 SECURE=1 LINKER_FILE=stm32f4.ld TARGET_FILE_NAME=$@
 
 px4fmuv4_bl: $(MAKEFILE_LIST) $(LIBOPENCM3)
 	${MAKE} ${MKFLAGS} -f  Makefile.f4 TARGET_HW=PX4_FMU_V4  LINKER_FILE=stm32f4.ld TARGET_FILE_NAME=$@
@@ -172,6 +178,19 @@ deploy:
 
 $(LIBOPENCM3): checksubmodules
 	${MAKE} -C $(LIBOPENCM3) lib
+
+$(WOLFSSL)/configure: $(WOLFSSL)/autogen.sh
+	cd $(WOLFSSL) && ./autogen.sh
+
+$(WOLFSSL)/Makefile: $(WOLFSSL)/configure
+	cd $(WOLFSSL) && ./configure --host=arm-non-eabi CC=arm-none-eabi-gcc AR=arm-none-eabi-ar STRIP=arm-none-eabi-strip RANLIB=arm-none-eabi-ranlib --prefix=$(realpath $(BL_BASE))/build/wolfssl CFLAGS="--specs=nosys.specs -DHAVE_PK_CALLBACKS -DWOLFSSL_USER_IO -DNO_WRITEV -mthumb -mcpu=cortex-m4 -mfloat-abi=hard -mfpu=fpv4-sp-d16" --disable-filesystem --enable-fastmath --disable-shared
+
+makewolfssl: $(WOLFSSL)/Makefile
+	${MAKE} -C $(WOLFSSL)
+.PHONY: makewolfssl
+
+$(WOLFSSL_BUILD): makewolfssl
+	${MAKE} -C $(WOLFSSL) install
 
 .PHONY: checksubmodules
 checksubmodules:
